@@ -1,0 +1,51 @@
+name: "Get/Set npm Cache"
+description: "Retrieve npm and binary from cache or run fresh install"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+      name: Checkout
+      with:
+        fetch-depth: 0
+
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 9
+
+    - uses: actions/setup-node@v4
+      name: NodeJS Setup
+      with:
+        node-version: 22
+        cache: 'pnpm'
+
+    - name: NPM Cache
+      id: pnpm-cache
+      uses: actions/cache@v3
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm
+
+    - name: Cache playwright binaries
+      uses: actions/cache@v3
+      id: playwright-cache
+      with:
+        path: |
+          ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-playwright
+
+    - name: Install Dependencies
+      if: steps.pnpm-cache.outputs.cache-hit != 'true'
+      run: pnpm install --frozen-lockfile
+
+    - run: npx playwright install --with-deps
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      name: Install Playwright dependencies
+
+    - run: npx playwright install-deps
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      name: Install Playwright Browsers
